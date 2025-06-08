@@ -2,18 +2,75 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var dbPool *pgxpool.Pool
+
+type Message struct {
+	Type    string `json:"type"`
+	Payload string `json:"payload"`
+}
+
 func main() {
-	fmt.Println("Starting the message queue listener...")
+	fmt.Println("Starting the service...")
+
+	// Initialize the connection pool
+	config, err := pgxpool.ParseConfig("postgres://postgres:postgres@localhost:5432/postgres?search_path=pgmq,public&sslmode=disable")
+	if err != nil {
+		panic(err)
+	}
+
+	config.MaxConns = 5
+	config.MinConns = 2
+
+	dbPool, err = pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		panic(err)
+	}
+	defer dbPool.Close()
 
 	go startQueueListener()
 
-	select {}
+	http.HandleFunc("/send", sendMessageHandler)
+	fmt.Println("HTTP server started at :8080")
+	http.ListenAndServe(":8080", nil)
+}
+
+func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var msg Message
+	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	jsonPayload, err := json.Marshal(map[string]string{
+		"type":    msg.Type,
+		"payload": msg.Payload,
+	})
+	if err != nil {
+		http.Error(w, "Failed to encode payload", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = dbPool.Exec(context.Background(), "SELECT pgmq.send($1, $2::jsonb)", "my_queue", string(jsonPayload))
+	if err != nil {
+		http.Error(w, "Failed to enqueue message: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte("Message enqueued successfully"))
 }
 
 func startQueueListener() {
