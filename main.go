@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Go projemiz çalışıyor! 🚀")
+	fmt.Println("Starting the message queue listener...")
 
 	go startQueueListener()
 
@@ -27,7 +27,7 @@ func startQueueListener() {
 
 	for {
 		var msgId int
-		var msgBody string // JSON içeriğini string olarak okumak için
+		var msgBody string
 
 		fmt.Println("Reading message from the queue...")
 
