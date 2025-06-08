@@ -2,7 +2,7 @@
 
 A simple queue-based processing system written in Go. It creates a message queue using `pgmq` on PostgreSQL, allows sending messages via REST API, and processes messages in the background with Go workers.
 
-> 📖 **Related Article**: [Managed Queue Servislerine Alternatif: Go ile PostgreSQL Tabanlı Worker Pool Mimarisi](https://medium.com/@anilyilmaz/managed-queue-servislerine-alternatif-go-ile-postgresql-tabanl%C4%B1-worker-pool-mimarisi-6117a64317dc)
+> 📖 **Related Article**: [Managed Queue Servislerine Alternatif: Go ile PostgreSQL Tabanlı Worker Pool Mimarisi](https://medium.com/@anilyilmaz/rabbitmqsuz-da-olur-postgresql-ile-sade-ve-g%C3%BC%C3%A7l%C3%BC-bir-kuyruk-sistemi-337e8bdb9823)
 > 
 > This project is a practical implementation of the concepts discussed in the Medium article, demonstrating how to build a PostgreSQL-based worker pool architecture as an alternative to managed queue services.
 
