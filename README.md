@@ -27,7 +27,7 @@ A simple queue-based processing system written in Go. It creates a message queue
 
 ```bash
 git clone https://github.com/anilyilmazz/go-pgmq.git
-cd pgmq-worker-api
+cd go-pgmq
 ```
 
 ### 2. Run the project with Docker Compose
