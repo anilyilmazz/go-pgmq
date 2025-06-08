@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -17,11 +17,21 @@ func main() {
 }
 
 func startQueueListener() {
-	conn, err := pgx.Connect(context.Background(), "postgres://postgres:postgres@localhost:5432/postgres?search_path=pgmq,public&sslmode=disable")
+	config, err := pgxpool.ParseConfig("postgres://postgres:postgres@localhost:5432/postgres?search_path=pgmq,public&sslmode=disable")
 	if err != nil {
-		fmt.Println("Error connecting to database:", err)
+		fmt.Println("Error parsing config:", err)
 		return
 	}
+
+	config.MaxConns = 5
+	config.MinConns = 2
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		fmt.Println("Error creating connection pool:", err)
+		return
+	}
+	defer pool.Close()
 
 	fmt.Println("Successfully connected to the database!")
 
@@ -31,7 +41,7 @@ func startQueueListener() {
 
 		fmt.Println("Reading message from the queue...")
 
-		err = conn.QueryRow(context.Background(),
+		err = pool.QueryRow(context.Background(),
 			"SELECT msg_id, message FROM pgmq.read_with_poll($1, $2, $3, $4, $5, $6) LIMIT 1",
 			"my_queue",
 			30,
@@ -41,7 +51,7 @@ func startQueueListener() {
 			"{}").Scan(&msgId, &msgBody)
 
 		if err != nil {
-			if err == pgx.ErrNoRows {
+			if err.Error() == "no rows in result set" {
 				fmt.Println("No message available, waiting...")
 				time.Sleep(1 * time.Second)
 				continue
@@ -53,14 +63,14 @@ func startQueueListener() {
 
 		fmt.Printf("Message ID: %d, Content: %s\n", msgId, msgBody)
 
-		go handleMessage(msgId, msgBody, conn)
+		go handleMessage(msgId, msgBody, pool)
 	}
 }
 
-func handleMessage(msgId int, msgContent string, conn *pgx.Conn) {
+func handleMessage(msgId int, msgContent string, pool *pgxpool.Pool) {
 	fmt.Printf("Handling message ID: %d with content: %s\n", msgId, msgContent)
 
-	_, err := conn.Exec(context.Background(), "SELECT pgmq.delete($1, $2)", "my_queue", msgId)
+	_, err := pool.Exec(context.Background(), "SELECT pgmq.delete($1, $2::bigint)", "my_queue", msgId)
 	if err != nil {
 		fmt.Println("Error deleting message:", err)
 		return
